@@ -14,7 +14,6 @@
 
   <main class="shell manual-shell">
     <div class="manual-intro">
-      <p class="eyebrow">Documentation</p>
       <h1>API 使用手冊</h1>
       <p>從建立帳號、取得 API Key，到送出第一個 OpenAI 相容的推論請求。</p>
     </div>
@@ -23,7 +22,7 @@
       <nav class="manual-nav" aria-label="手冊章節">
         <a href="#overview">開始使用</a>
         <a href="#account">註冊與登入</a>
-        <a href="#keys">取得 API Key</a>
+        <a href="#keys">管理 API Key</a>
         <a href="#inference">呼叫推論 API</a>
         <a href="#errors">錯誤處理</a>
       </nav>
@@ -57,18 +56,34 @@
         </section>
 
         <section id="keys">
-          <h2>取得 API Key</h2>
+          <h2>管理 API Key</h2>
           <h3 class="endpoint"><span class="method">POST</span> /api/keys</h3>
-          <p>帶入登入時保存的 Session Cookie。未登入會收到 <code>401</code>。</p>
+          <p>帶入登入時保存的 Session Cookie，並提供 1-64 字元的顯示名稱。未登入會收到 <code>401</code>。</p>
           <pre><code>curl -X POST http://127.0.0.1:8000/api/keys \
-  -b cookies.txt</code></pre>
-          <p>成功回應中的 <code>message.api_key</code> 即為完整金鑰：</p>
+  -H 'Content-Type: application/json' \
+  -b cookies.txt \
+  -d '{"name":"Production"}'</code></pre>
+          <p>控制台建立成功後會在另一個站內對話框顯示完整金鑰；API 回應中的 <code>message.api_key</code> 也會包含同一個值：</p>
           <pre><code>{
   "success": true,
   "message": {
     "api_key": "llm_live_REPLACE_ME"
   }
 }</code></pre>
+
+          <p>控制台以響應式表格分欄顯示每把金鑰的名稱、遮罩值、建立時間、最近使用時間、成功請求次數與累計 Token 用量；窄螢幕會改為標籤／值排列，避免列寬溢出。用量包含 Prompt、Completion 與兩者相加的 Total Tokens；格式錯誤或驗證失敗的請求不會計入。</p>
+
+          <h3 class="endpoint"><span class="method method-patch">PATCH</span> /api/keys/{key_id}</h3>
+          <p>可從控制台點選編輯圖示修改名稱，或使用 <code>GET /api/me</code> 回傳的 <code>id</code> 更新。</p>
+          <pre><code>curl -X PATCH http://127.0.0.1:8000/api/keys/1 \
+  -H 'Content-Type: application/json' \
+  -b cookies.txt \
+  -d '{"name":"Staging"}'</code></pre>
+
+          <h3 class="endpoint"><span class="method method-delete">DELETE</span> /api/keys/{key_id}</h3>
+          <p>可在控制台點選移除圖示，並在站內對話框確認；也可使用 <code>GET /api/me</code> 回傳的 <code>id</code> 呼叫刪除端點。移除後該金鑰會立即失效。</p>
+          <pre><code>curl -X DELETE http://127.0.0.1:8000/api/keys/1 \
+  -b cookies.txt</code></pre>
         </section>
 
         <section id="inference">

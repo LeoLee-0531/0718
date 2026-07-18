@@ -7,18 +7,59 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-pencil" viewBox="0 0 24 24">
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path>
+      <path d="m15 5 4 4"></path>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+      <path d="M3 6h18"></path>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <path d="M10 11v6"></path>
+      <path d="M14 11v6"></path>
+    </symbol>
+    <symbol id="icon-log-out" viewBox="0 0 24 24">
+      <path d="m16 17 5-5-5-5"></path>
+      <path d="M21 12H9"></path>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+    </symbol>
+  </svg>
+
   <header class="site-header">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span>Relay LLM</span></a>
-    <a class="nav-link" href="/manual">API 手冊</a>
+    <nav class="site-nav" aria-label="主要導覽">
+      <a class="nav-link" href="/manual">API 手冊</a>
+      <div id="account-menu" class="account-menu hidden">
+        <button
+          id="avatar-button"
+          class="avatar-button"
+          type="button"
+          aria-expanded="false"
+          aria-controls="account-popper"
+          aria-label="開啟帳號選單"
+        >
+          <span id="avatar-initial" aria-hidden="true"></span>
+        </button>
+        <div id="account-popper" class="account-popper hidden" aria-label="帳號選項">
+          <div class="account-summary">
+            <span>登入身分</span>
+            <strong id="nav-current-user"></strong>
+          </div>
+          <button id="logout-button" class="account-menu-item" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#icon-log-out"></use></svg>
+            <span>登出</span>
+          </button>
+        </div>
+      </div>
+    </nav>
   </header>
 
   <main class="shell">
     <section id="auth-view" class="auth-layout hidden">
       <div class="intro">
-        <p class="eyebrow">Inference API</p>
         <h1>讓模型服務接入更簡單。</h1>
         <p class="lede">建立帳號、取得 API Key，使用 OpenAI 相容介面串接應用程式。</p>
-        <p class="service-note">目前為 MVP 測試環境。推論端點會回傳可預期的 echo 內容，適合先完成整合與驗證。</p>
       </div>
 
       <div class="auth-panel">
@@ -46,13 +87,7 @@
     <section id="dashboard-view" class="hidden">
       <div class="dashboard-header">
         <div>
-          <p class="eyebrow">Developer console</p>
           <h1>API 控制台</h1>
-          <p>登入身分：<strong id="current-user"></strong></p>
-        </div>
-        <div class="dashboard-actions">
-          <a class="button button-secondary" href="/manual">查看手冊</a>
-          <button id="logout-button" class="button button-danger" type="button">登出</button>
         </div>
       </div>
 
@@ -65,22 +100,75 @@
           <button id="create-key-button" class="button button-primary" type="button">建立 API Key</button>
         </div>
 
-        <div id="new-key" class="new-key hidden" aria-live="polite">
-          <h3>新的 API Key</h3>
-          <p>請立即保存；離開頁面後將無法再次查看完整內容。</p>
-          <div class="key-value">
-            <code id="new-key-value"></code>
-            <button id="copy-key-button" class="button button-secondary" type="button">複製</button>
-          </div>
+        <div class="key-table-wrap">
+          <table class="key-table">
+            <caption>API Key 清單</caption>
+            <thead>
+              <tr>
+                <th scope="col">名稱</th>
+                <th scope="col">API Key</th>
+                <th scope="col">建立時間</th>
+                <th scope="col">最近使用</th>
+                <th scope="col">用量</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="key-list"></tbody>
+          </table>
         </div>
-
-        <div id="key-list" class="key-list"></div>
       </section>
     </section>
   </main>
+
+  <dialog id="key-name-dialog" class="dialog" aria-labelledby="key-name-title">
+    <form id="key-name-form" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="key-name-title">建立 API Key</h2>
+      </div>
+      <div class="field">
+        <label for="key-name-input">Key 名稱</label>
+        <input id="key-name-input" name="name" maxlength="64" placeholder="例如：Production" required>
+      </div>
+      <p id="key-name-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button id="key-name-cancel" class="button button-secondary" type="button">取消</button>
+        <button id="key-name-submit" class="button button-primary" type="submit">建立</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="new-key" class="dialog" aria-labelledby="new-key-title">
+    <div class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="new-key-title">新的 API Key</h2>
+      </div>
+      <p class="dialog-copy">請立即保存；關閉後將無法再次查看完整內容。</p>
+      <div class="key-value">
+        <code id="new-key-value"></code>
+        <button id="copy-key-button" class="button button-secondary" type="button">複製</button>
+      </div>
+      <p id="new-key-status" class="dialog-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="new-key-close" class="button button-primary" type="button">完成</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="remove-key-dialog" class="dialog" aria-labelledby="remove-key-title">
+    <form id="remove-key-form" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="remove-key-title">移除 API Key</h2>
+      </div>
+      <p class="dialog-copy">「<strong id="remove-key-name"></strong>」將立即失效，且無法復原。</p>
+      <p id="remove-key-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button id="remove-key-cancel" class="button button-secondary" type="button">取消</button>
+        <button id="remove-key-submit" class="button button-danger-solid" type="submit">移除 Key</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="toast" class="toast hidden" role="status"></div>
   <script src="/static/app.js" defer></script>
 </body>
 </html>
-
