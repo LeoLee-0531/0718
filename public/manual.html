@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relay LLM - API 手冊</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span>Relay LLM</span></a>
+    <a class="nav-link" href="/">API 控制台</a>
+  </header>
+
+  <main class="shell manual-shell">
+    <div class="manual-intro">
+      <p class="eyebrow">Documentation</p>
+      <h1>API 使用手冊</h1>
+      <p>從建立帳號、取得 API Key，到送出第一個 OpenAI 相容的推論請求。</p>
+    </div>
+
+    <div class="manual-grid">
+      <nav class="manual-nav" aria-label="手冊章節">
+        <a href="#overview">開始使用</a>
+        <a href="#account">註冊與登入</a>
+        <a href="#keys">取得 API Key</a>
+        <a href="#inference">呼叫推論 API</a>
+        <a href="#errors">錯誤處理</a>
+      </nav>
+
+      <article class="manual-content">
+        <section id="overview">
+          <h2>開始使用</h2>
+          <p>Relay LLM 提供 OpenAI 風格的 Chat Completions 介面。MVP 目前使用 echo 回應，會將最後一則 <code>user</code> 訊息包含在結果內，不會呼叫真實模型。</p>
+          <ol>
+            <li>註冊帳號並登入。</li>
+            <li>在控制台建立 API Key。</li>
+            <li>以 Bearer Auth 呼叫推論端點。</li>
+          </ol>
+          <p class="notice">完整 API Key 只在建立時顯示一次。請放在伺服器端的環境變數，不要提交到版本控制或放進瀏覽器程式碼。</p>
+        </section>
+
+        <section id="account">
+          <h2>註冊與登入</h2>
+          <h3 class="endpoint"><span class="method">POST</span> /api/register</h3>
+          <p>使用者名稱需為 3-64 字元，可使用英文字母、數字、底線、連字號或句點；密碼需為 8-128 字元。</p>
+          <pre><code>curl -X POST http://127.0.0.1:8000/api/register \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"correct-horse-battery-staple"}'</code></pre>
+
+          <h3 class="endpoint"><span class="method">POST</span> /api/login</h3>
+          <p>登入成功會透過 <code>Set-Cookie</code> 建立 Session。curl 可用 <code>-c</code> 將 Cookie 存到檔案。</p>
+          <pre><code>curl -i -c cookies.txt \
+  -X POST http://127.0.0.1:8000/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"correct-horse-battery-staple"}'</code></pre>
+        </section>
+
+        <section id="keys">
+          <h2>取得 API Key</h2>
+          <h3 class="endpoint"><span class="method">POST</span> /api/keys</h3>
+          <p>帶入登入時保存的 Session Cookie。未登入會收到 <code>401</code>。</p>
+          <pre><code>curl -X POST http://127.0.0.1:8000/api/keys \
+  -b cookies.txt</code></pre>
+          <p>成功回應中的 <code>message.api_key</code> 即為完整金鑰：</p>
+          <pre><code>{
+  "success": true,
+  "message": {
+    "api_key": "llm_live_REPLACE_ME"
+  }
+}</code></pre>
+        </section>
+
+        <section id="inference">
+          <h2>呼叫推論 API</h2>
+          <h3 class="endpoint"><span class="method">POST</span> /v1/chat/completions</h3>
+          <p>將 API Key 放在 <code>Authorization</code> header。請求需包含模型名稱與訊息陣列。</p>
+          <pre><code>curl -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer llm_live_REPLACE_ME' \
+  -d '{
+    "model": "mock-echo-1",
+    "messages": [
+      {"role": "system", "content": "Answer briefly."},
+      {"role": "user", "content": "Hello from Relay"}
+    ]
+  }'</code></pre>
+          <p>成功回應保留 OpenAI 相容的頂層 <code>choices</code> 與 <code>usage</code>。Token 數為一致的近似值，且 <code>total_tokens</code> 永遠等於 prompt 與 completion 之和。</p>
+          <pre><code>{
+  "success": true,
+  "message": {},
+  "id": "chatcmpl_...",
+  "object": "chat.completion",
+  "created": 1750000000,
+  "model": "mock-echo-1",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Echo: Hello from Relay"
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 8,
+    "completion_tokens": 6,
+    "total_tokens": 14
+  }
+}</code></pre>
+        </section>
+
+        <section id="errors">
+          <h2>錯誤處理</h2>
+          <p>所有 API 錯誤都是 JSON，不會回傳 HTML 或 stack trace。可依 HTTP 狀態碼與 <code>message.code</code> 判斷原因。</p>
+          <pre><code>{
+  "success": false,
+  "message": {
+    "code": "invalid_api_key",
+    "detail": "A valid Bearer API key is required."
+  }
+}</code></pre>
+          <p><code>400</code> 表示輸入格式不正確，<code>401</code> 表示 Session 或 API Key 無效，<code>409</code> 表示使用者名稱已存在。</p>
+        </section>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

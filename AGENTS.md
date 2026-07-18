@@ -12,6 +12,9 @@ documents below before changing behavior:
 
 - Keep API behavior aligned with `docs/api.md` and update the document first
   when a contract changes.
+- Every subsequent change, including code, behavior, configuration, and UI
+  changes, must update the relevant documentation in `docs/` and/or
+  `README.md` in the same change.
 - All non-inference JSON responses use `{ "success": boolean, "message": {} }`.
 - The inference endpoint keeps OpenAI-compatible fields at the top level and
   also includes `success` and `message`.
@@ -19,4 +22,3 @@ documents below before changing behavior:
 - Add or update automated tests for every behavioral change.
 - Commit messages use `[type]: [description]`, for example
   `feat: add account registration`.
-

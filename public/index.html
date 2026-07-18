@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relay LLM - API 控制台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span>Relay LLM</span></a>
+    <a class="nav-link" href="/manual">API 手冊</a>
+  </header>
+
+  <main class="shell">
+    <section id="auth-view" class="auth-layout hidden">
+      <div class="intro">
+        <p class="eyebrow">Inference API</p>
+        <h1>讓模型服務接入更簡單。</h1>
+        <p class="lede">建立帳號、取得 API Key，使用 OpenAI 相容介面串接應用程式。</p>
+        <p class="service-note">目前為 MVP 測試環境。推論端點會回傳可預期的 echo 內容，適合先完成整合與驗證。</p>
+      </div>
+
+      <div class="auth-panel">
+        <div class="tabs" role="tablist" aria-label="帳號操作">
+          <button class="tab" id="login-tab" role="tab" aria-selected="true" aria-controls="account-form">登入</button>
+          <button class="tab" id="register-tab" role="tab" aria-selected="false" aria-controls="account-form">註冊</button>
+        </div>
+        <form id="account-form" class="form-stack">
+          <div class="field">
+            <label for="username">使用者名稱</label>
+            <input id="username" name="username" autocomplete="username" minlength="3" maxlength="64" required>
+            <p id="username-hint" class="hint hidden">3-64 字元，可使用英文字母、數字、_、-、.</p>
+          </div>
+          <div class="field">
+            <label for="password">密碼</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required>
+            <p class="hint">至少 8 個字元</p>
+          </div>
+          <p id="form-error" class="form-error" role="alert"></p>
+          <button id="submit-button" class="button button-primary button-block" type="submit">登入</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboard-view" class="hidden">
+      <div class="dashboard-header">
+        <div>
+          <p class="eyebrow">Developer console</p>
+          <h1>API 控制台</h1>
+          <p>登入身分：<strong id="current-user"></strong></p>
+        </div>
+        <div class="dashboard-actions">
+          <a class="button button-secondary" href="/manual">查看手冊</a>
+          <button id="logout-button" class="button button-danger" type="button">登出</button>
+        </div>
+      </div>
+
+      <section class="key-section">
+        <div class="section-heading">
+          <div>
+            <h2>API Keys</h2>
+            <p>用於 Bearer 驗證。完整金鑰只會在建立時顯示一次。</p>
+          </div>
+          <button id="create-key-button" class="button button-primary" type="button">建立 API Key</button>
+        </div>
+
+        <div id="new-key" class="new-key hidden" aria-live="polite">
+          <h3>新的 API Key</h3>
+          <p>請立即保存；離開頁面後將無法再次查看完整內容。</p>
+          <div class="key-value">
+            <code id="new-key-value"></code>
+            <button id="copy-key-button" class="button button-secondary" type="button">複製</button>
+          </div>
+        </div>
+
+        <div id="key-list" class="key-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
+

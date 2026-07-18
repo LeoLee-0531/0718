@@ -32,6 +32,14 @@ local development needs no external service.
 The database file defaults to `data/app.db` and can be replaced with an
 in-memory database in tests.
 
+The development server uses the fixed address `http://127.0.0.1:8000`.
+
+## Source layout
+
+- `app/` contains the FastAPI application, schemas, persistence, and security helpers.
+- `public/` contains the browser console and public manual assets.
+- `tests/` contains integration tests and imports the application from the repository root.
+
 ## Out of scope
 
 Billing, quotas, key revocation, password reset, email verification, streaming
