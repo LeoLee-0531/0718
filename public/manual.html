@@ -43,13 +43,13 @@
         <section id="account">
           <h2>註冊與登入</h2>
           <h3 class="endpoint"><span class="method">POST</span> /api/register</h3>
-          <p>使用者名稱需為 3-64 字元，可使用英文字母、數字、底線、連字號或句點；密碼需為 8-128 字元。</p>
+          <p>使用者名稱需為 3-64 字元，可使用英文字母、數字、底線、連字號或句點；密碼需為 8-128 字元。註冊只會建立帳號，不會建立 Session；完成後必須再登入一次。</p>
           <pre><code>curl -X POST http://127.0.0.1:8000/api/register \
   -H 'Content-Type: application/json' \
   -d '{"username":"alice","password":"correct-horse-battery-staple"}'</code></pre>
 
           <h3 class="endpoint"><span class="method">POST</span> /api/login</h3>
-          <p>登入成功會透過 <code>Set-Cookie</code> 建立 Session。curl 可用 <code>-c</code> 將 Cookie 存到檔案。</p>
+          <p>註冊完成後，請另外送出這個登入請求。登入成功才會透過 <code>Set-Cookie</code> 建立 Session；curl 可用 <code>-c</code> 將 Cookie 存到檔案。</p>
           <pre><code>curl -i -c cookies.txt \
   -X POST http://127.0.0.1:8000/api/login \
   -H 'Content-Type: application/json' \

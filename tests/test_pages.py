@@ -36,8 +36,13 @@ def test_home_and_manual_are_public(client: TestClient) -> None:
     assert "setAccountPopper" in script.text
     assert "event.key === 'Escape'" in script.text
     assert "accountMenu.contains(event.target)" in script.text
+    assert "await request('/api/login'" not in script.text
+    assert "passwordInput.value = '';" in script.text
+    assert "setMode('login');" in script.text
+    assert "showToast('帳號已建立，請重新登入');" in script.text
     assert manual.status_code == 200
     assert "註冊與登入" in manual.text
+    assert "註冊只會建立帳號，不會建立 Session" in manual.text
     assert "PATCH" in manual.text
     assert "DELETE" in manual.text
     assert "/api/keys/{key_id}" in manual.text

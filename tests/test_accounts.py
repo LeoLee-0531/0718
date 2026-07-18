@@ -9,6 +9,10 @@ def test_register_hashes_password_and_rejects_duplicate(client: TestClient) -> N
 
     assert response.status_code == 201
     assert response.json() == {"success": True, "message": {"detail": "Account created."}}
+    assert "set-cookie" not in response.headers
+    assert client.cookies.get(SESSION_COOKIE) is None
+    assert client.app.state.db.fetch_one("SELECT COUNT(*) AS count FROM sessions")["count"] == 0
+    assert client.get("/api/me").status_code == 401
 
     row = client.app.state.db.fetch_one(
         "SELECT username, password_hash FROM users WHERE username = ?", ("Alice_01",)

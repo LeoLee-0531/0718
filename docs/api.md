@@ -23,9 +23,12 @@ Request:
 {"username":"alice","password":"correct-horse-battery-staple"}
 ```
 
-Returns `201` when the account is created. A duplicate username returns `409`.
-Usernames must be 3-64 characters and contain only letters, numbers, `_`, `-`,
-or `.`. Passwords must be at least 8 and at most 128 characters.
+Returns `201` when the account is created. Registration does not create a
+session or return a session cookie; the user must submit their credentials to
+`POST /api/login` before accessing authenticated routes. A duplicate username
+returns `409`. Usernames must be 3-64 characters and contain only letters,
+numbers, `_`, `-`, or `.`. Passwords must be at least 8 and at most 128
+characters.
 
 ## `POST /api/login`
 

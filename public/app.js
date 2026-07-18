@@ -230,8 +230,11 @@ form.addEventListener('submit', async (event) => {
   try {
     await request(`/api/${mode}`, { method: 'POST', body: JSON.stringify(data) });
     if (mode === 'register') {
-      await request('/api/login', { method: 'POST', body: JSON.stringify(data) });
-      showToast('帳號已建立');
+      passwordInput.value = '';
+      setMode('login');
+      showToast('帳號已建立，請重新登入');
+      passwordInput.focus();
+      return;
     }
     form.reset();
     await loadAccount();
