@@ -44,6 +44,15 @@ def test_home_and_manual_are_public(client: TestClient) -> None:
     assert "http://127.0.0.1:8000/api/register" in manual.text
     assert "/v1/chat/completions" in manual.text
     assert "curl" in manual.text
+    assert "SSE 串流" in manual.text
+    assert 'href="#streaming"' in manual.text
+    assert 'section id="streaming"' in manual.text
+    assert '"stream": true' in manual.text
+    assert "text/event-stream" in manual.text
+    assert "chat.completion.chunk" in manual.text
+    assert "choices[0].delta.content" in manual.text
+    assert "data: [DONE]" in manual.text
+    assert "--no-buffer" in manual.text
 
 
 def test_unknown_api_route_is_json(client: TestClient) -> None:

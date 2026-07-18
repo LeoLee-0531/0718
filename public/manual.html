@@ -24,6 +24,7 @@
         <a href="#account">註冊與登入</a>
         <a href="#keys">管理 API Key</a>
         <a href="#inference">呼叫推論 API</a>
+        <a href="#streaming">SSE 串流</a>
         <a href="#errors">錯誤處理</a>
       </nav>
 
@@ -122,6 +123,57 @@
     "total_tokens": 14
   }
 }</code></pre>
+
+        </section>
+
+        <section id="streaming">
+          <h2>SSE 串流</h2>
+          <p>同一個 <code>POST /v1/chat/completions</code> 端點支援 OpenAI 相容的 Server-Sent Events。將 request body 的 <code>stream</code> 設為 <code>true</code> 後，成功回應的 Content-Type 會變成 <code>text/event-stream</code>。</p>
+
+          <h3>送出串流請求</h3>
+          <p>模型、訊息與 Bearer API Key 的規則和非串流模式相同。使用 curl 時加入 <code>--no-buffer</code>，讓事件抵達後立即顯示。</p>
+          <pre><code>curl --no-buffer -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer llm_live_REPLACE_ME' \
+  -d '{
+    "model": "mock-echo-1",
+    "messages": [{"role": "user", "content": "Hello from Relay"}],
+    "stream": true
+  }'</code></pre>
+
+          <h3>事件順序</h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr><th scope="col">順序</th><th scope="col">內容</th><th scope="col">用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td><code>delta.role</code></td><td>宣告 assistant 角色</td></tr>
+                <tr><td>2..n</td><td><code>delta.content</code></td><td>分段傳送回答文字</td></tr>
+                <tr><td>n+1</td><td><code>finish_reason: "stop"</code></td><td>結束回答並提供 usage</td></tr>
+                <tr><td>最後</td><td><code>[DONE]</code></td><td>關閉本次事件串流</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>回應事件</h3>
+          <p>每個事件以 <code>data: </code> 開頭並以空行分隔。所有 JSON chunks 使用同一個 completion ID、建立時間與模型。</p>
+          <pre><code>data: {"success":true,"message":{},"id":"chatcmpl_...","object":"chat.completion.chunk","created":1750000000,"model":"mock-echo-1","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"success":true,"message":{},"id":"chatcmpl_...","object":"chat.completion.chunk","created":1750000000,"model":"mock-echo-1","choices":[{"index":0,"delta":{"content":"Echo: Hello"},"finish_reason":null}]}
+
+data: {"success":true,"message":{},"id":"chatcmpl_...","object":"chat.completion.chunk","created":1750000000,"model":"mock-echo-1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}
+
+data: [DONE]</code></pre>
+
+          <h3>處理方式</h3>
+          <ol>
+            <li>逐行讀取以 <code>data: </code> 開頭的事件。</li>
+            <li>解析 JSON，並依序串接 <code>choices[0].delta.content</code>。</li>
+            <li>從 stop chunk 讀取 <code>usage</code>；三個 Token 欄位維持加總一致。</li>
+            <li>收到 <code>[DONE]</code> 後結束讀取。</li>
+          </ol>
+          <p class="notice">API Key 或 payload 無效時不會開啟 SSE；服務會直接以既有 JSON 格式回傳 <code>400</code> 或 <code>401</code>。</p>
         </section>
 
         <section id="errors">

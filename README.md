@@ -96,4 +96,13 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   -d '{"model":"mock-echo-1","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
+加入 `"stream":true` 並使用 `--no-buffer` 接收 OpenAI 相容 SSE 串流：
+
+```sh
+curl --no-buffer -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer llm_live_REPLACE_ME' \
+  -d '{"model":"mock-echo-1","messages":[{"role":"user","content":"Hello"}],"stream":true}'
+```
+
 完整合約請參閱 [docs/api.md](docs/api.md)，瀏覽器版手冊則請前往 `/manual`。

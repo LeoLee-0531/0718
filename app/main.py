@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import sqlite3
 import time
@@ -10,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Database
@@ -54,6 +56,19 @@ def approximate_tokens(text: str) -> int:
     if not text:
         return 0
     return max(1, (len(text.encode("utf-8")) + 3) // 4)
+
+
+def encode_sse(data: dict[str, Any] | str) -> str:
+    payload = (
+        data
+        if isinstance(data, str)
+        else json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    )
+    return f"data: {payload}\n\n"
+
+
+def split_content(content: str, chunk_size: int = 12) -> list[str]:
+    return [content[index : index + chunk_size] for index in range(0, len(content), chunk_size)]
 
 
 def create_app(
@@ -255,7 +270,7 @@ def create_app(
         return json_response(200, True, {"detail": "API key removed."})
 
     @application.post("/v1/chat/completions")
-    async def chat_completions(request: Request, payload: ChatCompletionRequest) -> JSONResponse:
+    async def chat_completions(request: Request, payload: ChatCompletionRequest) -> Response:
         authorization = request.headers.get("authorization", "")
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() != "bearer" or not token or " " in token:
@@ -274,22 +289,92 @@ def create_app(
         content = f"Echo: {last_user_message.content}"
         prompt_tokens = sum(approximate_tokens(item.content) for item in payload.messages)
         completion_tokens = approximate_tokens(content)
-        db.execute(
-            """
-            UPDATE api_keys
-            SET last_used_at = ?,
-                request_count = request_count + 1,
-                prompt_tokens = prompt_tokens + ?,
-                completion_tokens = completion_tokens + ?
-            WHERE id = ?
-            """,
-            (now, prompt_tokens, completion_tokens, key["id"]),
-        )
+        completion_id = f"chatcmpl_{uuid.uuid4().hex}"
+        usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        }
+
+        def record_usage() -> None:
+            db.execute(
+                """
+                UPDATE api_keys
+                SET last_used_at = ?,
+                    request_count = request_count + 1,
+                    prompt_tokens = prompt_tokens + ?,
+                    completion_tokens = completion_tokens + ?
+                WHERE id = ?
+                """,
+                (now, prompt_tokens, completion_tokens, key["id"]),
+            )
+
+        if payload.stream:
+            common = {
+                "success": True,
+                "message": {},
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": now // 1000,
+                "model": payload.model,
+            }
+
+            async def event_stream() -> AsyncIterator[str]:
+                yield encode_sse(
+                    {
+                        **common,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"role": "assistant"},
+                                "finish_reason": None,
+                            }
+                        ],
+                    }
+                )
+                for content_chunk in split_content(content):
+                    if await request.is_disconnected():
+                        return
+                    yield encode_sse(
+                        {
+                            **common,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"content": content_chunk},
+                                    "finish_reason": None,
+                                }
+                            ],
+                        }
+                    )
+                    await asyncio.sleep(0)
+                if await request.is_disconnected():
+                    return
+                record_usage()
+                yield encode_sse(
+                    {
+                        **common,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        "usage": usage,
+                    }
+                )
+                yield encode_sse("[DONE]")
+
+            return StreamingResponse(
+                event_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
+        record_usage()
         return json_response(
             200,
             True,
             {},
-            id=f"chatcmpl_{uuid.uuid4().hex}",
+            id=completion_id,
             object="chat.completion",
             created=now // 1000,
             model=payload.model,
@@ -300,11 +385,7 @@ def create_app(
                     "finish_reason": "stop",
                 }
             ],
-            usage={
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens,
-            },
+            usage=usage,
         )
 
     @application.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

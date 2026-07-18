@@ -166,3 +166,23 @@ Token counts are deterministic approximations based on UTF-8 content length;
 `total_tokens` always equals prompt plus completion tokens. Missing or invalid
 credentials return JSON with status `401`. Malformed payloads return `400`.
 
+### Streaming response
+
+Set `"stream": true` to receive an OpenAI-compatible SSE response with media
+type `text/event-stream`. The stream sends a role chunk, one or more content
+chunks, a stop chunk containing usage, and the `[DONE]` sentinel. Content is
+read by concatenating `choices[0].delta.content` from each content event.
+
+```text
+data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],...}
+
+data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Echo: Hello"},"finish_reason":null}],...}
+
+data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":3,"total_tokens":4},...}
+
+data: [DONE]
+```
+
+Invalid authentication or payloads still return the normal JSON error before
+streaming begins. See [SSE streaming contract](streaming.md) for the complete
+event and accounting rules.

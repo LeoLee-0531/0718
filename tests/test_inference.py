@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 
@@ -124,3 +126,72 @@ def test_inference_validates_payload(client: TestClient, api_key: str) -> None:
     assert malformed.status_code == 400
     assert malformed.headers["content-type"].startswith("application/json")
     assert malformed.json()["success"] is False
+
+
+def test_inference_streams_openai_compatible_sse_chunks(
+    registered_client: TestClient, api_key: str
+) -> None:
+    payload = inference_payload()
+    payload["stream"] = True
+
+    with registered_client.stream(
+        "POST",
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json=payload,
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert response.headers["cache-control"] == "no-cache"
+        assert response.headers["x-accel-buffering"] == "no"
+        data_lines = [line.removeprefix("data: ") for line in response.iter_lines() if line]
+
+    assert data_lines[-1] == "[DONE]"
+    chunks = [json.loads(line) for line in data_lines[:-1]]
+    assert chunks[0]["choices"][0] == {
+        "index": 0,
+        "delta": {"role": "assistant"},
+        "finish_reason": None,
+    }
+    assert all(chunk["object"] == "chat.completion.chunk" for chunk in chunks)
+    assert len({chunk["id"] for chunk in chunks}) == 1
+    assert all(chunk["success"] is True and chunk["message"] == {} for chunk in chunks)
+
+    streamed_content = "".join(chunk["choices"][0]["delta"].get("content", "") for chunk in chunks)
+    assert streamed_content == "Echo: 最後一則問題"
+
+    final_chunk = chunks[-1]
+    assert final_chunk["choices"][0] == {
+        "index": 0,
+        "delta": {},
+        "finish_reason": "stop",
+    }
+    usage = final_chunk["usage"]
+    assert usage["total_tokens"] == usage["prompt_tokens"] + usage["completion_tokens"]
+
+    account_usage = registered_client.get("/api/me").json()["message"]["keys"][0]["usage"]
+    assert account_usage == {"requests": 1, **usage}
+
+
+def test_streaming_errors_remain_json(client: TestClient) -> None:
+    payload = inference_payload()
+    payload["stream"] = True
+    response = client.post("/v1/chat/completions", json=payload)
+
+    assert response.status_code == 401
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["message"]["code"] == "invalid_api_key"
+
+
+def test_stream_false_keeps_regular_json_response(client: TestClient, api_key: str) -> None:
+    payload = inference_payload()
+    payload["stream"] = False
+    response = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["object"] == "chat.completion"

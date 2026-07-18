@@ -9,6 +9,8 @@ completion endpoint. The mock endpoint does not call a real model.
 ## Components
 
 - FastAPI serves the HTML pages and JSON API from one process.
+- FastAPI `StreamingResponse` serves OpenAI-compatible SSE completions when a
+  request enables streaming.
 - SQLite persists users, server-side sessions, and API key hashes.
 - Passwords are hashed with Argon2 before persistence.
 - API keys are generated with a cryptographically secure random source. Only
@@ -53,6 +55,10 @@ from different revisions during development.
 - `app/` contains the FastAPI application, schemas, persistence, and security helpers.
 - `public/` contains the browser console and public manual assets.
 - `tests/` contains integration tests and imports the application from the repository root.
+
+Streaming uses an asynchronous generator. It yields deterministic character
+chunks without splitting Unicode code points and records per-key usage only
+when the generator reaches its successful completion event.
 
 ## Out of scope
 
