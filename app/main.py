@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Database
-from app.schemas import ChatCompletionRequest, Credentials, LoginCredentials
+from app.schemas import ApiKeyName, ChatCompletionRequest, Credentials, LoginCredentials
 from app.security import (
     SESSION_COOKIE,
     create_api_key,
@@ -186,7 +186,8 @@ def create_app(
             return user
         rows = db.fetch_all(
             """
-            SELECT id, key_prefix, created_at, last_used_at
+            SELECT id, name, key_prefix, created_at, last_used_at,
+                   request_count, prompt_tokens, completion_tokens
             FROM api_keys WHERE user_id = ? ORDER BY created_at DESC
             """,
             (user["id"],),
@@ -194,27 +195,64 @@ def create_app(
         keys = [
             {
                 "id": row["id"],
+                "name": row["name"],
                 "display": f"{row['key_prefix']}...",
                 "created_at": iso_timestamp(row["created_at"]),
                 "last_used_at": iso_timestamp(row["last_used_at"]),
+                "usage": {
+                    "requests": row["request_count"],
+                    "prompt_tokens": row["prompt_tokens"],
+                    "completion_tokens": row["completion_tokens"],
+                    "total_tokens": row["prompt_tokens"] + row["completion_tokens"],
+                },
             }
             for row in rows
         ]
         return json_response(200, True, {"username": user["username"], "keys": keys})
 
     @application.post("/api/keys")
-    async def create_key(user: SessionUser) -> JSONResponse:
+    async def create_key(user: SessionUser, payload: ApiKeyName | None = None) -> JSONResponse:
         if isinstance(user, JSONResponse):
             return user
         api_key = create_api_key()
         db.execute(
             """
-            INSERT INTO api_keys (key_hash, key_prefix, user_id, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO api_keys (key_hash, name, key_prefix, user_id, created_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (digest(api_key), api_key[:17], user["id"], int(time.time() * 1000)),
+            (
+                digest(api_key),
+                payload.name if payload else "Untitled key",
+                api_key[:17],
+                user["id"],
+                int(time.time() * 1000),
+            ),
         )
         return json_response(200, True, {"api_key": api_key})
+
+    @application.patch("/api/keys/{key_id}")
+    async def update_key(key_id: int, payload: ApiKeyName, user: SessionUser) -> JSONResponse:
+        if isinstance(user, JSONResponse):
+            return user
+        cursor = db.execute(
+            "UPDATE api_keys SET name = ? WHERE id = ? AND user_id = ?",
+            (payload.name, key_id, user["id"]),
+        )
+        if cursor.rowcount == 0:
+            return error(404, "api_key_not_found", "API key not found.")
+        return json_response(200, True, {"name": payload.name})
+
+    @application.delete("/api/keys/{key_id}")
+    async def delete_key(key_id: int, user: SessionUser) -> JSONResponse:
+        if isinstance(user, JSONResponse):
+            return user
+        cursor = db.execute(
+            "DELETE FROM api_keys WHERE id = ? AND user_id = ?",
+            (key_id, user["id"]),
+        )
+        if cursor.rowcount == 0:
+            return error(404, "api_key_not_found", "API key not found.")
+        return json_response(200, True, {"detail": "API key removed."})
 
     @application.post("/v1/chat/completions")
     async def chat_completions(request: Request, payload: ChatCompletionRequest) -> JSONResponse:
@@ -233,10 +271,20 @@ def create_app(
             return error(400, "invalid_request", "Messages must include at least one user message.")
 
         now = int(time.time() * 1000)
-        db.execute("UPDATE api_keys SET last_used_at = ? WHERE id = ?", (now, key["id"]))
         content = f"Echo: {last_user_message.content}"
         prompt_tokens = sum(approximate_tokens(item.content) for item in payload.messages)
         completion_tokens = approximate_tokens(content)
+        db.execute(
+            """
+            UPDATE api_keys
+            SET last_used_at = ?,
+                request_count = request_count + 1,
+                prompt_tokens = prompt_tokens + ?,
+                completion_tokens = completion_tokens + ?
+            WHERE id = ?
+            """,
+            (now, prompt_tokens, completion_tokens, key["id"]),
+        )
         return json_response(
             200,
             True,

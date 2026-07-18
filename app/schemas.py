@@ -37,6 +37,20 @@ class LoginCredentials(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class ApiKeyName(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=64)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must contain at least one non-whitespace character")
+        return value
+
+
 class ChatMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 

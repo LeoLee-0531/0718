@@ -54,6 +54,57 @@ def test_inference_echoes_last_user_message_and_has_consistent_usage(
 
     account = registered_client.get("/api/me").json()["message"]
     assert account["keys"][0]["last_used_at"] is not None
+    assert account["keys"][0]["usage"] == {
+        "requests": 1,
+        "prompt_tokens": usage["prompt_tokens"],
+        "completion_tokens": usage["completion_tokens"],
+        "total_tokens": usage["total_tokens"],
+    }
+
+
+def test_usage_accumulates_per_key_for_successful_requests(
+    registered_client: TestClient,
+) -> None:
+    first_key = registered_client.post("/api/keys").json()["message"]["api_key"]
+    second_key = registered_client.post("/api/keys").json()["message"]["api_key"]
+
+    first_response = registered_client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {first_key}"},
+        json=inference_payload(),
+    )
+    assert first_response.status_code == 200
+    registered_client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {first_key}"},
+        json=inference_payload(),
+    )
+    registered_client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {second_key}"},
+        json=inference_payload(),
+    )
+    registered_client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {first_key}"},
+        json={"model": "mock-echo-1", "messages": [{"role": "system", "content": "Hi"}]},
+    )
+
+    keys = registered_client.get("/api/me").json()["message"]["keys"]
+    usage_by_prefix = {key["display"][:-3]: key["usage"] for key in keys}
+    request_usage = first_response.json()["usage"]
+    assert usage_by_prefix[first_key[:17]] == {
+        "requests": 2,
+        "prompt_tokens": request_usage["prompt_tokens"] * 2,
+        "completion_tokens": request_usage["completion_tokens"] * 2,
+        "total_tokens": request_usage["total_tokens"] * 2,
+    }
+    assert usage_by_prefix[second_key[:17]] == {
+        "requests": 1,
+        "prompt_tokens": request_usage["prompt_tokens"],
+        "completion_tokens": request_usage["completion_tokens"],
+        "total_tokens": request_usage["total_tokens"],
+    }
 
 
 def test_inference_validates_payload(client: TestClient, api_key: str) -> None:

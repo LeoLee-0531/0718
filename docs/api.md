@@ -45,11 +45,45 @@ Requires a session. Deletes the server-side session and clears the cookie.
 ## `GET /api/me`
 
 Requires a session. Returns the signed-in username and masked key metadata for
-rendering the account page.
+rendering the account page. Each key includes usage accumulated from successful
+inference requests:
+
+```json
+{
+  "success": true,
+  "message": {
+    "username": "alice",
+    "keys": [{
+      "id": 1,
+      "name": "Production",
+      "display": "llm_live_example...",
+      "created_at": "2026-07-18T08:00:00Z",
+      "last_used_at": "2026-07-18T08:05:00Z",
+      "usage": {
+        "requests": 2,
+        "prompt_tokens": 8,
+        "completion_tokens": 10,
+        "total_tokens": 18
+      }
+    }]
+  }
+}
+```
+
+Usage starts at zero, is tracked separately for each key, and increments only
+when `POST /v1/chat/completions` returns a successful completion.
 
 ## `POST /api/keys`
 
-Requires a session. Returns `200` with the newly generated key:
+Requires a session. An optional JSON body assigns a display name:
+
+```json
+{"name":"Production"}
+```
+
+Names are trimmed and must contain 1-64 characters. Omitting the body keeps
+existing clients compatible and uses `Untitled key`. Returns `200` with the
+newly generated key:
 
 ```json
 {
@@ -60,6 +94,33 @@ Requires a session. Returns `200` with the newly generated key:
 
 The complete value is shown only in this response. Creating a new key does not
 invalidate older keys in the MVP.
+
+## `PATCH /api/keys/{key_id}`
+
+Requires a session. Updates the display name of the signed-in user's key:
+
+```json
+{"name":"Staging"}
+```
+
+Returns `200` with the normalized name. A key that does not exist or belongs to
+another user returns `404` with `api_key_not_found`, matching removal behavior.
+
+## `DELETE /api/keys/{key_id}`
+
+Requires a session. Removes the signed-in user's API key and returns `200`:
+
+```json
+{
+  "success": true,
+  "message": {"detail":"API key removed."}
+}
+```
+
+The removed key stops authorizing inference requests immediately. A key that
+does not exist or belongs to another user returns `404` with the stable error
+code `api_key_not_found`; the response does not reveal whether another user
+owns the requested key.
 
 ## `POST /v1/chat/completions`
 
