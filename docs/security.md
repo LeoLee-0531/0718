@@ -13,7 +13,9 @@
 - Session identifiers contain 32 random bytes.
 - Only SHA-256 session digests are stored.
 - Cookies are `HttpOnly`, `SameSite=Lax`, and use a configurable lifetime.
-- `Secure` is enabled when `NODE_ENV=production`.
+- `Secure` is enabled when `ENVIRONMENT=production`.
+- Local curl cookie jars contain active session credentials. `cookies.txt` is
+  ignored by Git and must never be committed or shared.
 
 ## Deployment requirements
 
