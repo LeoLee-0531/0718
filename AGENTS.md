@@ -5,6 +5,7 @@ documents below before changing behavior:
 
 - [Product and architecture](docs/architecture.md)
 - [HTTP API contract](docs/api.md)
+- [SSE streaming contract](docs/streaming.md)
 - [Security notes](docs/security.md)
 - [Development guide](README.md)
 
