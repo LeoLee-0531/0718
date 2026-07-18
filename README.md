@@ -1,56 +1,56 @@
-# LLM Inference Service MVP
+# LLM 推論服務 MVP
 
-A small account and API key service with an OpenAI-compatible mock chat
-completion endpoint.
+一個小型的帳號與 API 金鑰服務，提供與 OpenAI 相容的模擬聊天補全端點。
 
-## Requirements
+## 環境需求
 
-- Python 3.11 or newer
+- Python 3.11 或更新版本
 - [uv](https://docs.astral.sh/uv/)
 
-## Install
+## 安裝
 
 ```sh
 uv sync
 ```
 
-## Start
+## 啟動
 
 ```sh
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The service listens on `http://127.0.0.1:8000`. Open `/` to create
-an account or `/manual` for the public API manual.
+服務會監聽 `http://127.0.0.1:8000`。開啟 `/` 以建立帳號，或前往
+`/manual` 查看公開 API 手冊。開發模式會在原始碼變更後自動重新載入，確保
+Python 路由與瀏覽器控制台使用同一版程式。
 
-Configuration:
+設定：
 
-| Variable | Default | Purpose |
+| 變數 | 預設值 | 用途 |
 | --- | --- | --- |
-| `DATABASE_PATH` | `data/app.db` | SQLite database path |
-| `SESSION_TTL_MS` | `86400000` | Session lifetime in milliseconds |
-| `ENVIRONMENT` | `development` | Enables secure cookies when set to `production` |
+| `DATABASE_PATH` | `data/app.db` | SQLite 資料庫路徑 |
+| `SESSION_TTL_MS` | `86400000` | 工作階段有效時間（毫秒） |
+| `ENVIRONMENT` | `development` | 設為 `production` 時啟用安全 Cookie |
 
-## Test
+## 測試
 
 ```sh
 uv run pytest
 ```
 
-The integration suite uses a temporary SQLite database and exercises account
-registration, login sessions, API key creation, inference authentication,
-echo responses, usage consistency, validation errors, and the public manual.
+整合測試套件使用暫存 SQLite 資料庫，涵蓋帳號註冊、登入工作階段、API 金鑰的
+建立與移除、推論驗證、API 金鑰命名、各金鑰的請求與 Token 計數器、回聲回應、
+用量一致性、驗證錯誤，以及公開手冊。
 
-Run static checks before committing:
+提交前請執行靜態檢查：
 
 ```sh
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-## API quick start
+## API 快速入門
 
-Register and store the login cookie:
+註冊並儲存登入 Cookie：
 
 ```sh
 curl -i -X POST http://127.0.0.1:8000/api/register \
@@ -62,13 +62,31 @@ curl -i -c cookies.txt -X POST http://127.0.0.1:8000/api/login \
   -d '{"username":"alice","password":"correct-horse-battery-staple"}'
 ```
 
-Create a key with the saved session:
+使用已儲存的工作階段建立金鑰：
 
 ```sh
-curl -X POST http://127.0.0.1:8000/api/keys -b cookies.txt
+curl -X POST http://127.0.0.1:8000/api/keys \
+  -H 'Content-Type: application/json' \
+  -b cookies.txt \
+  -d '{"name":"Production"}'
 ```
 
-Call the mock inference endpoint using the returned key:
+稍後重新命名金鑰：
+
+```sh
+curl -X PATCH http://127.0.0.1:8000/api/keys/1 \
+  -H 'Content-Type: application/json' \
+  -b cookies.txt \
+  -d '{"name":"Staging"}'
+```
+
+使用 `GET /api/me` 回傳的 `id` 移除金鑰：
+
+```sh
+curl -X DELETE http://127.0.0.1:8000/api/keys/1 -b cookies.txt
+```
+
+使用回傳的金鑰呼叫模擬推論端點：
 
 ```sh
 curl -X POST http://127.0.0.1:8000/v1/chat/completions \
@@ -77,5 +95,4 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   -d '{"model":"mock-echo-1","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
-See [docs/api.md](docs/api.md) for the complete contract and `/manual` for the
-browser manual.
+完整合約請參閱 [docs/api.md](docs/api.md)，瀏覽器版手冊則請前往 `/manual`。
