@@ -55,7 +55,11 @@ async function request(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.message?.detail || '請求失敗，請稍後重試。');
+  if (!response.ok) {
+    const error = new Error(body.message?.detail || '請求失敗，請稍後重試。');
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }
 
@@ -177,7 +181,6 @@ async function loadAccount() {
   try {
     const body = await request('/api/me');
     const username = body.message.username;
-    document.querySelector('#current-user').textContent = username;
     navCurrentUser.textContent = username;
     avatarInitial.textContent = getAvatarInitial(username);
     avatarButton.setAttribute('aria-label', `開啟 ${username} 的帳號選單`);
@@ -185,11 +188,16 @@ async function loadAccount() {
     renderKeys(body.message.keys);
     authView.classList.add('hidden');
     dashboardView.classList.remove('hidden');
-  } catch {
+    formError.textContent = '';
+  } catch (error) {
     setAccountPopper(false);
     accountMenu.classList.add('hidden');
     dashboardView.classList.add('hidden');
     authView.classList.remove('hidden');
+    if (error.status !== 401) {
+      console.error('Unable to load the API console.', error);
+      formError.textContent = '無法載入 API 控制台，請稍後重試。';
+    }
   }
 }
 

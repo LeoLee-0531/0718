@@ -25,7 +25,8 @@ completion endpoint. The mock endpoint does not call a real model.
 ## Main flow
 
 1. A visitor registers with a username and password.
-2. The visitor signs in and receives a server-side session cookie.
+2. The visitor signs in, receives a server-side session cookie, and the browser
+   loads `GET /api/me` before switching from the account form to the console.
 3. The signed-in user names and creates an API key. The browser console shows
    the complete key once in a dedicated application dialog.
 4. The signed-in user can rename or remove one of their API keys through

@@ -22,7 +22,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 服務會監聽 `http://127.0.0.1:8000`。開啟 `/` 以建立帳號，並可由導覽列前往
 `/manual` 查看公開 API 手冊。開發模式會在原始碼變更後自動重新載入，確保
 Python 路由與瀏覽器控制台使用同一版程式。登入後，導覽列右側會顯示帳號
-Avatar；點選 Avatar 可查看目前的登入身分並登出。
+Avatar，頁面會切換至 API 控制台；點選 Avatar 可查看目前的登入身分並登出。
 
 設定：
 
@@ -48,6 +48,12 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+## 問題排查
+
+如果登入 API 回傳成功，但頁面沒有切換至 API 控制台，請依照
+[Troubleshooting](docs/troubleshooting.md) 檢查 `/api/me`、瀏覽器 Console、
+前端 DOM id，以及開發伺服器是否載入最新程式。
 
 ## API 快速入門
 

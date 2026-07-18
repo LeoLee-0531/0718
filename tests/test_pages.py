@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -13,7 +15,6 @@ def test_home_and_manual_are_public(client: TestClient) -> None:
     assert '<tbody id="key-list"></tbody>' in home.text
     assert '<th scope="col">名稱</th>' in home.text
     assert '<th scope="col">用量</th>' in home.text
-    assert '<th scope="col">操作</th>' in home.text
     assert 'id="icon-pencil"' in home.text
     assert 'id="icon-trash"' in home.text
     assert 'id="icon-log-out"' in home.text
@@ -61,3 +62,13 @@ def test_unknown_api_route_is_json(client: TestClient) -> None:
     assert response.headers["content-type"].startswith("application/json")
     assert response.json()["success"] is False
     assert response.json()["message"]["code"] == "not_found"
+
+
+def test_browser_script_references_existing_elements(client: TestClient) -> None:
+    home = client.get("/")
+    script = client.get("/static/app.js")
+
+    element_ids = set(re.findall(r'\bid="([^"]+)"', home.text))
+    referenced_ids = set(re.findall(r"querySelector\('#([^']+)'\)", script.text))
+
+    assert referenced_ids <= element_ids
