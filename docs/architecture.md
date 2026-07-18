@@ -32,7 +32,9 @@ local development needs no external service.
 The database file defaults to `data/app.db` and can be replaced with an
 in-memory database in tests.
 
-The development server uses the fixed address `http://127.0.0.1:8000`.
+The development server uses the fixed address `http://127.0.0.1:8000` and
+reloads after source changes so the Python routes and browser assets do not run
+from different revisions during development.
 
 ## Source layout
 
