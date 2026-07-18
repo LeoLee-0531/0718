@@ -5,19 +5,19 @@ completion endpoint.
 
 ## Requirements
 
-- Node.js 22 or newer
-- npm 10 or newer
+- Python 3.11 or newer
+- [uv](https://docs.astral.sh/uv/)
 
 ## Install
 
 ```sh
-npm install
+uv sync
 ```
 
 ## Start
 
 ```sh
-npm start
+uv run uvicorn app.main:app --host 127.0.0.1 --port 3000
 ```
 
 The service listens on `http://localhost:3000` by default. Open `/` to create
@@ -36,10 +36,10 @@ Configuration:
 ## Test
 
 ```sh
-npm test
+uv run pytest
 ```
 
-The integration suite uses an in-memory SQLite database and exercises account
+The integration suite uses a temporary SQLite database and exercises account
 registration, login sessions, API key creation, inference authentication,
 echo responses, usage consistency, validation errors, and the public manual.
 
